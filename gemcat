@@ -1,0 +1,36 @@
+#!/usr/bin/perl
+
+use Mojo::Base -strict, -signatures;
+use Mojo::IOLoop;
+use Mojo::URL;
+
+my $url = Mojo::URL->new(shift);
+
+$url->scheme('gemini');
+
+if ( !$url->port ) {
+    $url->port(1965);
+}
+
+Mojo::IOLoop->client(
+    { port => $url->port, address => $url->host, tls => 1, tls_options => { SSL_verify_mode => 0 }},
+    sub ( $loop, $err, $stream ) {
+        if ( $err ) {
+            die $err;
+        }
+        $stream->on(
+            read => sub ( $stream, $bytes ) {
+                $bytes =~ s/\r\n/\n/g;
+                print $bytes;
+            }
+        );
+        $stream->on(
+            error => sub ( $client, $error ) {
+                say STDERR $error;
+            }
+        );
+        $stream->write("$url\r\n");
+    }
+);
+
+Mojo::IOLoop->start;
